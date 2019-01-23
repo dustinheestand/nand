@@ -11,4 +11,50 @@
 // "white" in every pixel;
 // the screen should remain fully clear as long as no key is pressed.
 
-// Put your code here.
+  @SCREEN //Load the location of the screen into R0
+  D=A
+  @R0
+  M=D
+(LOOP)
+  @R0 //Check to see if we have overflowed the screen at the end
+  D=M
+  @24576
+  D=D-A
+  @CONT
+  D;JLT
+  @SCREEN
+  D=A
+  @R0
+  M=D
+  (CONT)
+    @R0 //Check to see if we have overflowed the screen at the beginning
+    D=M
+    @SCREEN
+    D=A-D
+    @CONT2
+    D;JLE
+    @24576
+    D=A
+    @R0
+    M=D
+    (CONT2)
+    @KBD //the keyboard
+    D=M
+    @WHITE
+    D;JEQ
+    (BLACK)
+      @R0
+      A=M
+      M=-1
+      @R0
+      M=M+1
+      @LOOP
+      0;JMP
+    (WHITE)
+      @R0
+      A=M
+      M=0
+      @R0
+      M=M-1
+      @LOOP
+      0;JMP
