@@ -35,9 +35,62 @@ CHIP CPU {
 
     OUT outM[16],        // M value output
         writeM,          // Write to M? 
-        addressM[15],    // Address in data memory (of M)
+        addressM[15],    // DONE? - Address in data memory (of M)
         pc[15];          // address of next instruction
 
     PARTS:
-    // Put your code here:
+
+    //If the first bit of the instruction is 0, send instruction to A-Register
+    //else send the output of the ALU (don't worry, we won't write unless our control bit says to)
+    Mux16(a=instruction, b=ALUOut, sel=instruction[15], out=aRegInput);
+
+    Not(in=instruction[15], out=isAInstruction);
+
+    //Interpret the destination bits!
+    And(a=instruction[15], b=instruction[5], out=ALUOutputToA);
+    And(a=instruction[15], b=instruction[4], out=writeD);
+    And(a=instruction[15], b=instruction[3], out=writeM);
+
+    //Load to A if either we have an A instruction, or our C-instruction tells us to write to A
+    Or(a=isAInstruction, b=ALUOutputToA, out=loadToA);
+
+    //I only want to load into A if my control bit tells me to! 
+    ARegister(in=aRegInput, load=loadToA, out=memLocation);
+
+    //Output the contents of the A register unconditionally to addressM
+    And16(a=memLocation, b=memLocation, out[0..14]=addressM);
+
+    //Feed either A or M into the ALU
+    Mux16(a=memLocation, b=inM, sel=instruction[12], out=ALUY);
+    
+    //Unexpectedly the most straightforward bit
+    ALU(x=D, y=ALUY, zx=instruction[11], nx=instruction[10], zy=instruction[9], ny=instruction[8], f=instruction[7], no=instruction[6], out=ALUOut, zr=ALUzr, ng=ALUng);
+    
+    DRegister(in=ALUOut, load=writeD, out=D);
+    //The ALU output goes unconditionally to the memory
+    And16(a=ALUOut, b=ALUOut, out=outM);
+    
+    //Jumping!
+    //There's got to be a better way of doing this!
+    //First establish whether JGT
+    Not(in=ALUzr, out=NotALUzr);
+    Not(in=ALUng, out=NotALUng);
+    And(a=NotALUzr, b=NotALUng, out=ALUpositive);
+
+    //Then establish whether we are ever being told to jump
+    And(a=instruction[15], b=instruction[2], out=jumpLT);
+    And(a=instruction[15], b=instruction[1], out=jumpEQ);
+    And(a=instruction[15], b=instruction[0], out=jumpGT);
+
+    //Then figure out if our ALU output corresponds to a jump condition
+    And(a=ALUpositive, b=jumpGT, out=jump0);
+    And(a=ALUzr, b=jumpEQ, out=jump1);
+    And(a=ALUng, b=jumpLT, out=jump2);
+
+    //If so, one of these three will tell our PC to jump
+    Or(a=jump0, b=jump1, out=jump3);
+    Or(a=jump3, b=jump2, out=jump);
+
+    //Our spec tells us always to increment if not resetting or jumping!
+    PC(in=memLocation, load=jump, inc=true, reset=reset, out[0..14]=pc);
 }

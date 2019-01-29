@@ -27,5 +27,26 @@ CHIP Memory {
     OUT out[16];
 
     PARTS:
-    // Put your code here:
+    //Only load to screen if the first two bits of the address are 10
+    //And the load bit is 1
+    And(a=load, b=address[14], out=loadtoperiph);
+    Not(in=address[13], out=notaddr13);
+    And(a=loadtoperiph, b=notaddr13, out=loadtoscreen);
+
+    //Otherwise load to memory if the load bit is 1
+    Not(in=address[14], out=notaddr14);
+    And(a=load, b=notaddr14, out=loadtomem);
+
+    //Ram is simple - will emit the value at an address or load to that address
+    RAM16K(in=in, load=loadtomem, address=address[0..13], out=ramout);
+
+    //I think screenout is just an fyi for the system? Don't fully understand
+    Screen(in=in, load=loadtoscreen, address=address[0..12], out=screenout);
+    //With keyboard load bit can be 0 or 1 - we'll still have key out
+    //I don't actually make addresses above 24576 do nothing because I don't think they
+    //could ever be received as input. But I can at a future time if I need to.
+    Keyboard(out=keyout);
+    //Look at the most significant bits of the address to determine whether we need
+    //the message from ram, the screen, or the keyboard
+    Mux4Way16(a=ramout, b=ramout, c=screenout, d=keyout, sel=address[13..14], out=out);
 }
